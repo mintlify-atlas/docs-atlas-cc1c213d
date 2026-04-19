@@ -1,97 +1,61 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Yarn: Open Minecraft name mappings for everyone"
+description: "Yarn provides human-readable names for Minecraft's obfuscated classes, methods, and fields under Creative Commons Zero — free for all mod developers."
 ---
 
-## Setting up
+Yarn is a set of open, unencumbered Minecraft mappings published by FabricMC under the Creative Commons Zero license. It replaces Minecraft's obfuscated class names (like `class_4970`) with meaningful names (like `AbstractBlock`), making it possible to write Minecraft mods with readable, maintainable code.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get Yarn running in your environment and open Enigma to start editing mappings.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Using Yarn in mods" icon="cube" href="/using-yarn-in-mods">
+    Add Yarn as a dependency in your Fabric mod using the Loom Gradle plugin.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Contributing mappings" icon="code-pull-request" href="/contributing/overview">
+    Learn the workflow for submitting new or improved name mappings to Yarn.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Naming conventions" icon="book" href="/conventions/general">
+    Read the naming rules every Yarn contributor must follow before submitting.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What Yarn provides
 
-Everything you need to create world-class documentation.
+Minecraft's code is shipped obfuscated — every class, method, and field has a meaningless name like `class_1234` or `method_5678`. Yarn maps those names to descriptive identifiers such as `BlockEntity`, `tick`, and `getWorld`, giving the Minecraft modding community a shared vocabulary.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="6,500+ mappings" icon="database">
+    Covers classes, methods, fields, and parameters across the entire Minecraft codebase.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="CC0 license" icon="scale-balanced">
+    No restrictions — use Yarn in any project, commercial or open source, without attribution.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Enigma editor" icon="pen-to-square">
+    Edit mappings visually with a purpose-built GUI that integrates directly with the Yarn repository.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Tiny v2 format" icon="file-code">
+    Mappings are published as Tiny v2 artifacts on maven.fabricmc.net for use with Fabric Loom.
   </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## How Yarn works
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+Yarn sits in the middle of a three-namespace mapping chain: **official** (Mojang's obfuscated names) → **intermediary** (stable numeric names that don't change between Minecraft versions) → **named** (Yarn's human-readable names).
+
+When you write a Fabric mod, Fabric Loom remaps your code through this chain so your mod works against the correct obfuscated names at runtime, while you write code against Yarn's readable names at development time.
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    Fork [FabricMC/yarn](https://github.com/FabricMC/yarn) on GitHub and clone your fork locally. You need Java 17 or higher installed.
+  </Step>
+  <Step title="Open Enigma">
+    Run `./gradlew yarn` to launch the Enigma GUI. It will download the Minecraft jar, remap it through intermediary, and open it alongside the current mappings.
+  </Step>
+  <Step title="Edit mappings">
+    Find unmapped or incorrectly named classes, methods, or fields in Enigma and assign better names. Consult the [naming conventions](/conventions/general) before you write anything.
+  </Step>
+  <Step title="Submit a pull request">
+    Commit your changes, push to your fork, and open a pull request against the Yarn repository. See the [contributing guide](/contributing/submitting-mappings) for review expectations.
+  </Step>
+</Steps>

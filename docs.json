@@ -1,122 +1,82 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Yarn",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6c6353",
+    "light": "#363224",
+    "dark": "#cabca2"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/065cfd55-1760-4594-bf59-70410d70ab7d.png",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/FabricMC/yarn"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/FabricMC/yarn"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "using-yarn-in-mods"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Contributing",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "contributing/overview",
+              "contributing/setup",
+              "contributing/submitting-mappings"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Naming Conventions",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "conventions/general",
+              "conventions/javadoc",
+              "conventions/special-cases"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Gradle Tasks",
             "pages": [
-              "api-reference/introduction"
+              "reference/gradle-tasks",
+              "reference/build-artifacts"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Mapping Format",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "reference/mapping-format",
+              "reference/unpick-definitions",
+              "reference/annotations"
+            ]
+          },
+          {
+            "group": "Tooling",
+            "pages": [
+              "reference/enigma",
+              "reference/intermediary"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

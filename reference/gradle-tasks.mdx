@@ -1,0 +1,365 @@
+---
+title: "Yarn Gradle tasks: build, validate, and edit mappings"
+description: "Complete reference for all Gradle tasks used to edit mappings in Enigma, build mapping archives, validate correctness, and decompile Minecraft source."
+---
+
+Yarn uses Gradle to provide a set of utility tasks for working with name mappings. You can run any task with `./gradlew <taskName>` on Linux/macOS or `gradlew <taskName>` on Windows. Java 17 or higher is required to run the build scripts; Java 21 is used to compile the project itself.
+
+<Note>
+  The current Minecraft version targeted by this branch is **1.21.11**. Check the branch name to confirm the version you are working with.
+</Note>
+
+## Quick start
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    Fork the [yarn repository](https://github.com/FabricMC/yarn) on GitHub, then clone your fork locally.
+  </Step>
+  <Step title="Open Enigma to edit mappings">
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew yarn
+```
+
+```bash Windows
+gradlew yarn
+```
+
+    </CodeGroup>
+
+    This downloads the intermediary-mapped Minecraft jar and launches Enigma with your local mappings loaded.
+  </Step>
+  <Step title="Validate and build">
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew build
+```
+
+```bash Windows
+gradlew build
+```
+
+    </CodeGroup>
+
+    Runs all checks and produces the mapping archives in `build/libs/`.
+  </Step>
+</Steps>
+
+## Task reference
+
+Tasks are grouped by their primary purpose below. Each task can be run independently; the build system resolves dependencies automatically.
+
+### Editing workflow
+
+These tasks support day-to-day mapping work inside Enigma.
+
+<AccordionGroup>
+  <Accordion title="yarn — open Enigma (merged jar)">
+    Launches the latest version of [Enigma](https://github.com/FabricMC/Enigma) configured to use the intermediary-mapped merged jar and your local mappings directory. The task automatically downloads Enigma and the Minecraft jar if they are not already cached.
+
+    Compared to launching Enigma manually, this task adds a name-guesser plugin that automatically proposes names for enum constants and a handful of constant field names.
+
+    **Depends on:** `mapIntermediaryJar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew yarn
+```
+
+```bash Windows
+gradlew yarn
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="yarnCommon — open Enigma (server-only classes)">
+    Same as `yarn`, but opens Enigma with the server-only intermediary-mapped jar. Use this when you want to view or edit classes that are shared between the client and server without client-specific code in view.
+
+    **Depends on:** `mapServerIntermediaryJar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew yarnCommon
+```
+
+```bash Windows
+gradlew yarnCommon
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="formatMappings — sort and format mapping files">
+    Formats and sorts all mapping files in the `mappings/` directory, ensuring consistent ordering. Run this before committing if you have edited mappings manually outside Enigma, or if a review asks for formatting changes.
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew formatMappings
+```
+
+```bash Windows
+gradlew formatMappings
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="insertNameProposalMappings — apply auto-proposed names">
+    Runs the `MappingNameCompleter` to fill in automatically proposed names — primarily enum constant names and similar patterns — into the mappings. The output is used as an input to several build tasks.
+
+    **Depends on:** `mapIntermediaryJar`, `downloadIntermediary`, `completeMappings`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew insertNameProposalMappings
+```
+
+```bash Windows
+gradlew insertNameProposalMappings
+```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+### Building
+
+These tasks produce the mapping archives and jars that are published to Maven.
+
+<AccordionGroup>
+  <Accordion title="build — full build (all artifacts)">
+    Runs all checks and produces every published artifact: the GZip-compressed tiny mapping archive, the Tiny v1 jar, the Tiny v2 unmerged jar, the Tiny v2 merged jar, and the Javadoc jar. Output files are placed in `build/libs/`.
+
+    **Produces:** `yarn-<version>-tiny.jar`, `yarn-<version>.jar`, `yarn-<version>-v2.jar`, `yarn-<version>-mergedv2.jar`, `yarn-<version>-javadoc.jar`
+
+    **Depends on:** `compressTiny`, `tinyJar`, `v2UnmergedYarnJar`, `v2MergedYarnJar`, `javadocJar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew build
+```
+
+```bash Windows
+gradlew build
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="mapNamedJar — deobfuscated Minecraft jar">
+    Produces a deobfuscated Minecraft jar at `build/<minecraft_version>-named.jar` using yarn names wherever they exist, and intermediary names for anything not yet mapped. The jar applies unpick substitutions to replace constant references with their named counterparts.
+
+    This jar is intended for use with a decompiler — it is not suitable for recompilation.
+
+    **Depends on:** `mergeV2`, `unpickIntermediaryJar`
+
+    **Produces:** `build/1.21.11-named.jar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew mapNamedJar
+```
+
+```bash Windows
+gradlew mapNamedJar
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="mapIntermediaryJar — remap official jar to intermediary">
+    Remaps the merged official Minecraft jar from the `official` namespace to the `intermediary` namespace. The output is used as the base for Enigma and for all downstream jar-mapping tasks.
+
+    **Depends on:** `downloadIntermediary`, `mergeMinecraftJars`
+
+    **Produces:** `build/1.21.11-intermediary.jar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew mapIntermediaryJar
+```
+
+```bash Windows
+gradlew mapIntermediaryJar
+```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+### Downloading and merging
+
+<AccordionGroup>
+  <Accordion title="download — download Minecraft jars">
+    Downloads the official Minecraft client and server jars for the current Minecraft version into `.gradle/minecraft`. Subsequent tasks that need the jars will trigger this automatically.
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew download
+```
+
+```bash Windows
+gradlew download
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="mergeJars — merge client and server jars">
+    Merges the client and server jars into a single merged jar located at `<version>-merged.jar` in the mappings directory. This merged jar is the basis for the intermediary-mapped jar used in Enigma.
+
+    **Produces:** `<minecraft_version>-merged.jar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew mergeJars
+```
+
+```bash Windows
+gradlew mergeJars
+```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+### Validation
+
+These tasks check the correctness and consistency of the mappings. They all run automatically as part of `./gradlew check` (which `build` depends on).
+
+<AccordionGroup>
+  <Accordion title="checkMappings — validate mapping correctness">
+    Validates that the mappings in the `mappings/` directory are internally consistent and correctly structured. Reports any errors found.
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew checkMappings
+```
+
+```bash Windows
+gradlew checkMappings
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="checkPackages — validate package assignments">
+    Checks that all mapped classes have been assigned to a package, using the intermediary-mapped jar as the reference. Errors are printed but do not fail the build, so this task is informational.
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew checkPackages
+```
+
+```bash Windows
+gradlew checkPackages
+```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+### Decompilation
+
+<Warning>
+  The decompiled source produced by these tasks is for reading only. It is not designed to be recompiled.
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="decompileCFR — decompile with CFR">
+    Decompiles the named Minecraft jar using the [CFR](https://github.com/leibnitz27/cfr) decompiler. Output is written to `build/namedSrc/`. Useful for reading deobfuscated source while contributing mappings.
+
+    **Depends on:** `mapNamedJar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew decompileCFR
+```
+
+```bash Windows
+gradlew decompileCFR
+```
+
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="decompileVineflower — decompile with Vineflower">
+    Decompiles the named Minecraft jar using the [Vineflower](https://github.com/Vineflower/vineflower) decompiler (a fork of Fernflower). Output is written to `build/namedSrc/`. Vineflower generally produces cleaner output than CFR for complex bytecode patterns.
+
+    **Depends on:** `mapNamedJar`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew decompileVineflower
+```
+
+```bash Windows
+gradlew decompileVineflower
+```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+### Javadoc generation
+
+<AccordionGroup>
+  <Accordion title="javadoc — generate Javadoc">
+    Generates Javadoc from fake source produced by [MappingPoet](https://github.com/FabricMC/mapping-poet). The generated source is not real Java — it is synthesized from the mappings to allow the standard Javadoc tool to process it. Requires up to 2 GB of heap.
+
+    **Depends on:** `genFakeSource` → `mapNamedJar`, `mergeV2`
+
+    <CodeGroup>
+
+```bash Linux / macOS
+./gradlew javadoc
+```
+
+```bash Windows
+gradlew javadoc
+```
+
+    </CodeGroup>
+  </Accordion>
+</AccordionGroup>
+
+## Full task list
+
+The table below summarises every task documented above.
+
+| Task | Gradle group | Primary output |
+|------|-------------|----------------|
+| `yarn` | yarn | Opens Enigma GUI |
+| `yarnCommon` | yarn | Opens Enigma GUI (server jar) |
+| `build` | build | All artifacts in `build/libs/` |
+| `mapNamedJar` | jar mapping | `build/1.21.11-named.jar` |
+| `mapIntermediaryJar` | jar mapping | `build/1.21.11-intermediary.jar` |
+| `download` | — | Minecraft jars in `.gradle/minecraft` |
+| `mergeJars` | — | `1.21.11-merged.jar` |
+| `formatMappings` | — | Formatted files in `mappings/` |
+| `checkMappings` | mapping build | Validation report |
+| `checkPackages` | mapping build | Validation report (non-failing) |
+| `insertNameProposalMappings` | mapping build | `build/temp/yarn/unmerged-named-v2-with-enum.tiny` |
+| `decompileCFR` | — | `build/namedSrc/` |
+| `decompileVineflower` | — | `build/namedSrc/` |
+| `javadoc` | javadoc generation | `build/docs/javadoc/` |
+
+<Tip>
+  Run `./gradlew tasks` to see the full list of available tasks and their descriptions directly from Gradle.
+</Tip>

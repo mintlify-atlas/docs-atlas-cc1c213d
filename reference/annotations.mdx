@@ -1,0 +1,196 @@
+---
+title: 'Yarn annotations: method contract declarations'
+description: 'Reference for annotations.json, the file that attaches JetBrains annotations such as @Contract(pure=true) to Minecraft methods in the yarn named namespace.'
+---
+
+Yarn ships an `annotations.json` file at the root of the repository. It maps named Minecraft methods to [JetBrains annotations](https://github.com/JetBrains/java-annotations) — structured metadata that IDEs and static-analysis tools use to understand the contract a method obeys. The annotations travel with the mappings and appear in the `-extras.jar` artefact so that any toolchain consuming yarn can benefit from them without additional configuration.
+
+## Purpose
+
+Static methods that compute a value without modifying any state are good candidates for the `@Contract(pure = true)` annotation. When IntelliJ IDEA or similar tools see this annotation they know the method has no observable side effects and can eliminate unnecessary calls, highlight misuse, and improve dataflow analysis. Because yarn already provides human-readable names for Minecraft's methods, it is also the right place to attach these annotations rather than requiring each mod project to maintain its own.
+
+## File structure
+
+`annotations.json` is a JSON object with three top-level keys:
+
+```json
+{
+  "version": 1,
+  "namespace": "named",
+  "classes": {
+    "<class_name>": {
+      "methods": {
+        "<method_signature>": {
+          "<annotation_key>": [
+            {
+              "desc": "<annotation_descriptor>",
+              "values": {
+                "<attribute_name>": {
+                  "type": "<java_type>",
+                  "value": <value>
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `version` | Schema version of this file. Currently `1`. |
+| `namespace` | The mapping namespace in which class and method names are expressed. Always `named` in the source file. |
+| `classes` | A map of slash-separated class names to their method annotations. |
+
+### Method entries
+
+Inside each class the `methods` map uses the method's full JVM signature as the key:
+
+```
+<method_name>(<descriptor>)<return_descriptor>
+```
+
+The value is a map of annotation keys to arrays of annotation objects. Each annotation object has:
+
+| Field | Description |
+|-------|-------------|
+| `desc` | The JVM descriptor of the annotation type (e.g. `Lorg/jetbrains/annotations/Contract;`) |
+| `values` | A map of annotation attribute names to typed values |
+
+Each value entry has a `type` field (`"boolean"`, `"string"`, etc.) and a `value` field containing the actual data.
+
+## BlockPos example
+
+The following is the complete content of the current `annotations.json`:
+
+```json
+{
+  "version": 1,
+  "classes": {
+    "net/minecraft/util/math/BlockPos": {
+      "methods": {
+        "add(Lnet/minecraft/util/math/Vec3i;)Lnet/minecraft/util/math/BlockPos;": {
+          "add": [
+            {
+              "desc": "Lorg/jetbrains/annotations/Contract;",
+              "values": {
+                "pure": {
+                  "type": "boolean",
+                  "value": true
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "namespace": "named"
+}
+```
+
+This entry annotates `BlockPos.add(Vec3i)` with `@Contract(pure = true)`, informing the IDE that calling `blockPos.add(offset)` does not modify `blockPos` and that discarding its return value is likely a programming error.
+
+## Supported annotations
+
+<AccordionGroup>
+  <Accordion title="@Contract(pure = true)">
+    Marks a method as having no observable side effects — it reads inputs and returns a result without mutating any state, throwing exceptions under normal conditions, or interacting with I/O.
+
+    ```json
+    {
+      "desc": "Lorg/jetbrains/annotations/Contract;",
+      "values": {
+        "pure": {
+          "type": "boolean",
+          "value": true
+        }
+      }
+    }
+    ```
+
+    **When to add it**: any static or instance method that computes a new value from its inputs without modifying the receiver or any shared state. Common examples in Minecraft include math helper methods, coordinate transformations, and state query methods.
+
+    **When not to add it**: methods that mutate a field, write to a `BlockView`, schedule a tick, or have any other side effect — even if they also return a value.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  The `@Contract` annotation is provided by the `org.jetbrains:annotations` library, which is already on the compile classpath for all Fabric mods. You do not need to add any extra dependency to see the annotation effects in your IDE.
+</Tip>
+
+## Build integration
+
+Two Gradle tasks handle annotations as part of the build:
+
+<Steps>
+  <Step title="checkAnnotations">
+    Validates that every class and method referenced in `annotations.json` exists in the named jar. This task runs as part of `check`.
+
+    ```groovy
+    tasks.register('checkAnnotations', CheckAnnotationsTask) {
+        group = 'annotations'
+        input = file('annotations.json')
+        targetJars.from(mapNamedNoUnpickJar)
+        classpath.from(minecraftLibraries)
+    }
+    ```
+
+    The task will fail if a referenced class or method is missing from the named jar — for example if a Minecraft update removes or renames a method that was annotated.
+  </Step>
+
+  <Step title="remapAnnotationsIntermediary">
+    Translates all class and method names in `annotations.json` from the `named` namespace to the `intermediary` namespace, producing `build/temp/yarn/annotations-intermediary.json`.
+
+    ```groovy
+    tasks.register('remapAnnotationsIntermediary', RemapAnnotationsTask) {
+        group = 'annotations'
+        input = file('annotations.json')
+        classpath.from(mapNamedNoUnpickJar)
+        mappings = insertNameProposalMappings.output
+        sourceNamespace = 'named'
+        targetNamespace = 'intermediary'
+        output = new File(tempDir, 'annotations-intermediary.json')
+    }
+    ```
+
+    The remapped file uses stable intermediary names so that it remains valid across minor Minecraft versions where only yarn names change.
+  </Step>
+</Steps>
+
+## Published artefact
+
+<Note>
+  The remapped `annotations-intermediary.json` file is packaged at `extras/annotations.json` inside the `-v2.jar`, `-mergedv2.jar`, and `-extras.jar` Maven artefacts. It is **not** the source `annotations.json` — the published file contains intermediary names.
+</Note>
+
+The three artefacts that include annotations:
+
+| Artefact classifier | Path inside jar |
+|--------------------|-----------------|
+| `-v2` | `extras/annotations.json` |
+| `-mergedv2` | `extras/annotations.json` |
+| `-extras` | `extras/annotations.json` |
+
+Mod toolchains that process the yarn jar can read this file to apply the annotations to the remapped Minecraft classes in the development environment.
+
+## Adding new annotations
+
+<Steps>
+  <Step title="Identify the method">
+    Find the fully-qualified named class path and JVM method signature for the method you want to annotate. The named jar produced by `mapNamedNoUnpickJar` is a convenient reference.
+  </Step>
+  <Step title="Edit annotations.json">
+    Add a new entry under the appropriate class in `annotations.json`. Use the `named` namespace for all names.
+  </Step>
+  <Step title="Validate">
+    Run `./gradlew checkAnnotations` to confirm the class and method exist in the named jar. The task is part of the standard `check` lifecycle and will catch typos in class paths or descriptors.
+  </Step>
+</Steps>
+
+<Warning>
+  Only add `@Contract(pure = true)` to methods that are genuinely pure. An incorrect annotation can suppress IDE warnings for real bugs where the caller discards a meaningful result or relies on a side effect that does not exist.
+</Warning>

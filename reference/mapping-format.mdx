@@ -1,0 +1,215 @@
+---
+title: 'Enigma mapping file format reference'
+description: 'Complete reference for the Enigma .mapping format used in the mappings/ directory and the Tiny v2 output format produced by the yarn build pipeline.'
+---
+
+Yarn stores its human-readable name mappings as a tree of `.mapping` files in the `mappings/` directory. Each file corresponds to one top-level Minecraft class and records the translations from obfuscated intermediary names to the human-readable `named` names that appear in your IDE. During the build, those Enigma files are converted to the Tiny v2 text format that Gradle-based projects consume.
+
+## Namespace chain
+
+Minecraft's names flow through three namespaces before you see them:
+
+| Namespace | Description |
+|-----------|-------------|
+| `official` | Obfuscated names shipped by Mojang (e.g. `a`, `b`, `c`) |
+| `intermediary` | Stable, numeric names provided by FabricMC Intermediary (e.g. `class_4970`, `method_9514`) |
+| `named` | Human-readable names written by yarn contributors (e.g. `AbstractBlock`, `randomTick`) |
+
+The intermediary names never change between Minecraft releases, which means a yarn PR only ever touches the `named` column. The `official → intermediary` translation is downloaded separately from the [FabricMC/intermediary](https://github.com/FabricMC/intermediary) repository.
+
+## Enigma format
+
+The Enigma format is the **source of truth** for yarn mappings. One `.mapping` file exists per top-level class, and its path mirrors the named package structure. For example, `net/minecraft/block/AbstractBlock.mapping` maps `net/minecraft/class_4970` to `net/minecraft/block/AbstractBlock`.
+
+### Directives
+
+<AccordionGroup>
+  <Accordion title="CLASS">
+    Declares the mapping from an intermediary class name to a named class name.
+
+    ```text
+    CLASS <intermediary_name> <named_name>
+    ```
+
+    The intermediary name uses `/`-separated path notation. Nested classes use `$` as the separator on the intermediary side; on the named side you still write them as separate `CLASS` blocks indented inside the outer class.
+
+    ```text
+    CLASS net/minecraft/class_4970 net/minecraft/block/AbstractBlock
+    ```
+  </Accordion>
+
+  <Accordion title="METHOD">
+    Maps one method. The descriptor uses the JVM internal type notation.
+
+    ```text
+    	METHOD <descriptor> <intermediary_name> <named_name>
+    ```
+
+    ```text
+    	METHOD (Lnet/minecraft/class_2680;Lnet/minecraft/class_3218;Lnet/minecraft/class_2338;Lnet/minecraft/class_5819;)V method_9514 randomTick
+    ```
+  </Accordion>
+
+  <Accordion title="FIELD">
+    Maps one field. The format is intermediary name, named name, then type descriptor.
+
+    ```text
+    	FIELD <intermediary_name> <named_name> <type_descriptor>
+    ```
+
+    ```text
+    	FIELD field_23154 dynamicBounds Z
+    ```
+  </Accordion>
+
+  <Accordion title="ARG">
+    Assigns a name to a method parameter. The index is 0-based (but in practice starts at 1 for instance methods because index 0 is `this`).
+
+    ```text
+    		ARG <index> <named_name>
+    ```
+
+    ```text
+    		ARG 1 state
+    		ARG 2 world
+    		ARG 3 pos
+    		ARG 4 random
+    ```
+  </Accordion>
+
+  <Accordion title="COMMENT">
+    Adds a line of Javadoc to the enclosing element. Multiple consecutive `COMMENT` lines are concatenated.
+
+    ```text
+    	COMMENT <javadoc text>
+    ```
+
+    HTML tags, `{@link ...}`, `{@return ...}`, and standard Javadoc tags (`@apiNote`, `@see`) are all supported.
+  </Accordion>
+</AccordionGroup>
+
+### Indentation rules
+
+Each directive is indented one level deeper than its parent:
+
+- Top-level `CLASS` — no indent
+- `METHOD`, `FIELD`, and `COMMENT` on a class — one tab
+- `ARG` and `COMMENT` on a method — two tabs
+- `COMMENT` on a field — two tabs
+
+<Warning>
+  The Enigma format requires **tab characters** for indentation, not spaces. The `formatMappings` Gradle task normalises ordering and whitespace; run it before opening a pull request.
+</Warning>
+
+### Real example — AbstractBlock.mapping (abridged)
+
+The following excerpt is taken directly from `mappings/net/minecraft/block/AbstractBlock.mapping`:
+
+```text
+CLASS net/minecraft/class_4970 net/minecraft/block/AbstractBlock
+	COMMENT An abstract class that defines some logic for {@link Block blocks}.
+	COMMENT <strong>This class should not be extended directly. Extend {@link Block} instead.</strong>
+	COMMENT Custom block behaviors are specified either through {@linkplain AbstractBlock.Settings
+	COMMENT block settings} or by overriding methods in this class.
+	FIELD field_23154 dynamicBounds Z
+		COMMENT Whether this block's collision shape can change.
+		COMMENT
+		COMMENT @see Block#hasDynamicBounds
+	FIELD field_23155 settings Lnet/minecraft/class_4970$class_2251;
+		COMMENT The {@link AbstractBlock.Settings} to apply to this block.
+	METHOD method_9514 randomTick (Lnet/minecraft/class_2680;Lnet/minecraft/class_3218;Lnet/minecraft/class_2338;Lnet/minecraft/class_5819;)V
+		COMMENT Called server-side when a block gets ticked randomly.
+		ARG 1 state
+		ARG 2 world
+		ARG 3 pos
+		ARG 4 random
+	METHOD method_9516 canPathfindThrough (Lnet/minecraft/class_2680;Lnet/minecraft/class_10;)Z
+		COMMENT {@return if an entity using navigation type {@code type} can navigate through this block}
+		ARG 1 state
+		ARG 2 type
+	CLASS class_2251 Settings
+		METHOD method_9618 breakInstantly ()Lnet/minecraft/class_4970$class_2251;
+			COMMENT Specifies that a block is broken instantly.
+		METHOD method_9624 dynamicBounds ()Lnet/minecraft/class_4970$class_2251;
+			COMMENT Specifies that a block's collision bounds can dynamically resize.
+```
+
+<Note>
+  Inner classes (e.g. `AbstractBlock.Settings`) are mapped with a nested `CLASS` directive inside the outer class block, even though in the Enigma GUI they appear as separate nodes.
+</Note>
+
+## Tiny v2 format
+
+Tiny v2 is the output format produced by the build pipeline and is what mod toolchains (Loom, tiny-remapper) consume. It is a tab-separated text file that lists every namespace as a column header.
+
+### Structure
+
+```text
+tiny	2	0	intermediary	named
+c	net/minecraft/class_4970	net/minecraft/block/AbstractBlock
+	m	(Lnet/minecraft/class_2680;Lnet/minecraft/class_3218;Lnet/minecraft/class_2338;Lnet/minecraft/class_5819;)V	method_9514	randomTick
+		p	1		state
+		p	2		world
+		p	3		pos
+		p	4		random
+	f	Z	field_23154	dynamicBounds
+```
+
+| Token | Meaning |
+|-------|---------|
+| `tiny\t2\t0` | Format identifier and version |
+| `c` | Class mapping line |
+| `m` | Method mapping line (indented one tab under its class) |
+| `f` | Field mapping line |
+| `p` | Parameter name line (indented two tabs under its method) |
+
+<Steps>
+  <Step title="Header line">
+    The first line is always `tiny\t2\t0\t<ns1>\t<ns2>\t...`. Yarn uses two namespaces: `intermediary` and `named`.
+  </Step>
+  <Step title="Class lines">
+    Each class starts with `c` followed by one name per namespace column, tab-separated.
+  </Step>
+  <Step title="Method and field lines">
+    Methods (`m`) and fields (`f`) are indented one tab. Methods include the JVM descriptor before the names.
+  </Step>
+  <Step title="Parameter lines">
+    Parameters (`p`) are indented two tabs. The parameter index comes first, then one name per namespace (the `intermediary` column is typically empty for parameters).
+  </Step>
+</Steps>
+
+### Merged vs. unmerged
+
+The build produces two Tiny v2 artefacts:
+
+<CodeGroup>
+
+```text yarn-VERSION-v2.jar (unmerged)
+# Contains mappings/mappings.tiny with intermediary and named columns.
+# The intermediary column covers only the client-side jar.
+tiny	2	0	intermediary	named
+```
+
+```text yarn-VERSION-mergedv2.jar (merged)
+# The intermediary column covers the merged client+server jar.
+# Used by most mod toolchains.
+tiny	2	0	intermediary	named
+```
+
+</CodeGroup>
+
+<Tip>
+  Most mod toolchains use the merged v2 jar (`-mergedv2`). The unmerged jar is useful for tooling that works with split client/server jars.
+</Tip>
+
+## Build tasks
+
+| Task | Description |
+|------|-------------|
+| `formatMappings` | Normalises indentation, ordering, and whitespace in the `mappings/` directory |
+| `mapSpecializedMethods` | Converts Enigma → Tiny v2 (unmerged, `intermediary:named`) |
+| `completeMappings` | Fills in missing entries from the intermediary namespace |
+| `mergeTiny` | Merges the intermediary mappings with the yarn Tiny v2 output |
+| `v2UnmergedYarnJar` | Packages the unmerged Tiny v2 mappings into the `-v2.jar` artefact |
+| `v2MergedYarnJar` | Packages the merged Tiny v2 mappings into the `-mergedv2.jar` artefact |
+| `checkMappings` | Validates the Enigma files for consistency errors |

@@ -1,0 +1,265 @@
+---
+title: "Writing Javadoc comments for Yarn mappings"
+description: "Standards for sentence structure, parameter docs, cross-references, custom tags, game content capitalisation, and validating Javadoc output in Yarn."
+---
+
+Well-written Javadoc is a critical part of a mapping contribution. Because Yarn's Javadoc is published and consumed by the entire Fabric modding community, it must be accurate, readable, and formatted consistently. This page covers every rule you need to follow when writing or reviewing Javadoc in Yarn.
+
+## Sentence structure
+
+Write complete sentences for class, method, and field Javadoc. Each sentence must:
+
+- Start with an **uppercase** letter.
+- End with a **period**.
+
+Start method documentation with a **verb** in the third-person singular present tense.
+
+```java
+/**
+ * Gets the block's corresponding item.
+ */
+
+/**
+ * Called when a player starts breaking the block.
+ */
+```
+
+Use HTML `<p>` tags to separate paragraphs. Line breaks in Javadoc source are collapsed to a single space in the generated output, so paragraph tags are the only way to produce visible breaks.
+
+```java
+/**
+ * Gets the state of the block after a neighboring block's state changes.
+ *
+ * <p>Returning {@link Blocks#AIR} breaks this block.
+ *
+ * <p>Side effects should be performed in {@link #neighborUpdate} instead.
+ */
+```
+
+<Note>
+Closing tags such as `</p>` are optional in Javadoc and you can omit them.
+</Note>
+
+## The first sentence rule
+
+Javadoc treats everything up to the **first period** (`.`) as the brief description shown in index pages and hover tooltips. Make the first sentence self-contained and informative.
+
+<Warning>
+Periods inside abbreviations such as `i.e.` also end the brief description. Write "that is" or restructure the sentence to avoid this.
+</Warning>
+
+## `{@return}` syntax
+
+When the first sentence describes the return value, use `{@return}` to automatically populate both the main description and the return section:
+
+```java
+/**
+ * {@return the block's corresponding item}
+ *
+ * <p>This is not affected by loot tables.
+ */
+```
+
+## Parameter documentation
+
+**Do not use `@param` tags for method parameters.** Instead, add documentation directly to each parameter in the mapping. This allows Matcher to carry parameter docs forward across Minecraft updates automatically.
+
+Parameter descriptions use quick phrases — no initial capitalisation and no trailing punctuation:
+
+```java
+// Parameter doc on the parameter itself (in the mapping)
+ARG 1 dropExperience
+    COMMENT {@code true} if experience orbs should be dropped, {@code false} otherwise
+```
+
+You **can** use `@param` for type parameters (generic type variables like `<T>`), since those cannot be documented separately:
+
+```java
+/**
+ * A lazily initialised value.
+ *
+ * @param <T> the type of the wrapped value
+ */
+public class Lazy<T> { }
+```
+
+## `{@index}` for searchable text
+
+Wrap important terms in `{@index}` to make them discoverable through the Javadoc search index:
+
+```java
+/**
+ * A block that {@index emits redstone power} when activated.
+ */
+```
+
+## Custom block tags
+
+Yarn's Javadoc tooling supports three additional block tags beyond the standard set:
+
+| Tag | Purpose |
+|---|---|
+| `@apiNote` | Notes for users of the documented API — caveats, recommended usage patterns. |
+| `@implSpec` | Describes how this method is implemented. Generally avoided in Yarn because Yarn does not define implementations. |
+| `@implNote` | Informal notes about the implementation, without binding callers to it. |
+
+<Accordion title="Example using @apiNote from AbstractBlock">
+
+The following is taken directly from `AbstractBlock.mapping` and shows `@apiNote` used to explain how a method is called in practice:
+
+```java
+/**
+ * An abstract class that defines some logic for blocks.
+ *
+ * <p>Methods in this class may be executed during world generation if they
+ * take {@link WorldAccess} as a parameter.
+ *
+ * @apiNote In vanilla subclasses, these methods are called either to do the
+ * default behavior (e.g. {@code super.onUse(...)}). Because the methods are
+ * {@code protected}, you must use these methods via the corresponding method
+ * in {@link AbstractBlockState}.
+ */
+public abstract class AbstractBlock { }
+```
+
+</Accordion>
+
+## Linking to other members
+
+Use `@link`, `@linkplain`, and `@see` to reference related classes, methods, and fields.
+
+### When to use simple vs. fully-qualified names
+
+A class can be referenced by its **simple name** only when it is considered "imported" in the Javadoc context. A class is considered imported when it is:
+
+1. In the `java.lang` package.
+2. In the **same package** as the class being documented.
+3. Part of the class's API — appearing in a field type, method parameter, method return type, or class signature (including type bounds).
+
+If none of those conditions are met, use the **full binary name** with dots (not slashes):
+
+```java
+// Simple name — List appears in the constructor's signature
+/**
+ * You can link to {@link List} with the simple name as it's part of a method's signature.
+ */
+public Stuff(List<Integer> opt) { }
+
+// Fully qualified — UtilityClass is only used inside method body, different package
+/**
+ * You must fully qualify {@link net.example.util.UtilityClass} because it is not
+ * part of any signature and is from a different package.
+ */
+```
+
+<Accordion title="Full example: simple vs. fully-qualified links">
+
+The following example illustrates all cases in a single class:
+
+```java
+/**
+ * Assume this class is from the {@code net.example.stuff} package.
+ *
+ * <p>You can link to {@link Optional} as it's part of the class signature
+ * (type parameter bound).
+ *
+ * <p>You must fully qualify {@link net.example.stuff.basic.BasicStuffUser}
+ * when linking as it is not in any signature and is from a different package.
+ */
+public class Stuff<T extends Optional<?>> {
+    /**
+     * You can link to {@link Listener} with the simple name as it's part of
+     * a field's signature.
+     */
+    protected Listener listener;
+
+    /**
+     * You can link to {@link List} with the simple name as it's part of a
+     * method's signature.
+     *
+     * <p>You must fully qualify {@link net.example.util.UtilityClass} because
+     * it is not part of any signature (even though it is used in code) and is
+     * from a different package.
+     */
+    public Stuff(List<Integer> opt) {
+        UtilityClass.callMethod(opt);
+    }
+}
+```
+
+</Accordion>
+
+Always use Yarn's mapped names when referencing Minecraft members — never intermediary (`class_XXXX`) names:
+
+```java
+// Correct — Yarn mapped name
+{@link net.minecraft.server.world.ThreadedAnvilChunkStorage}
+
+// Incorrect — intermediary name
+{@link net.minecraft.class_3898}
+```
+
+## Game content capitalisation
+
+When describing in-game content, do **not** capitalise the names of mobs, items, or blocks. Treat them as common nouns:
+
+```
+// Incorrect
+The quick Snow Fox jumped over the tamed Wolf.
+
+// Correct
+The quick snow fox jumped over the tamed wolf.
+```
+
+Use inline `{@link}` references to hint that a name refers to in-game content rather than capitalising it.
+
+## Package documentation
+
+Because Enigma's format does not support `package-info.java` file creation, Yarn stores package documentation in `src/packageDocs/java`. These files exist solely to host Javadoc for packages. The same conventions that apply to all other Javadoc apply here.
+
+An example from the `net.minecraft.nbt` package:
+
+```java
+/**
+ * The Named Binary Tag (NBT) data format.
+ *
+ * <p>NBT is a simple data structure format used in Minecraft's in-game data
+ * serialization. Data stored on disks, modified by commands, and transported
+ * via packets are usually in this format.
+ */
+package net.minecraft.nbt;
+```
+
+## Checking Javadoc
+
+After writing Javadoc, validate it before submitting.
+
+<Steps>
+
+<Step title="Check via GitHub">
+After pushing a commit, open the **Checks** section on the pull request. The section titled `Run ./gradlew build javadocJar checkMappings mapNamedJar --stacktrace` contains all Javadoc output under the `Task :javadoc` heading.
+</Step>
+
+<Step title="Check locally on Linux or macOS">
+Run the following command from the repository root. This takes a while due to the size of the Minecraft codebase.
+
+```bash
+./gradlew javadoc
+```
+</Step>
+
+<Step title="Check locally on Windows">
+```bash
+gradlew javadoc
+```
+</Step>
+
+<Step title="Review the generated output">
+After the task completes, open `build/docs/javadoc/` in a browser to confirm the Javadoc renders correctly. Broken links and malformed tags will appear as warnings in the task output.
+</Step>
+
+</Steps>
+
+<Tip>
+If you are unsure whether your Javadoc is stylistically correct, run the `javadoc` task and review its output — it will flag many common mistakes automatically.
+</Tip>

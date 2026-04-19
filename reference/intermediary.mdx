@@ -1,0 +1,123 @@
+---
+title: "Intermediary: stable obfuscation-independent class names"
+description: "Intermediary assigns stable numeric names to Minecraft's obfuscated classes, methods, and fields, keeping Yarn mappings valid across Minecraft versions."
+---
+
+Intermediary is a FabricMC project that sits between Mojang's obfuscated names and Yarn's human-readable names. It assigns a stable set of numeric identifiers — `class_XXXX`, `method_XXXX`, `field_XXXX` — to every class, method, and field in Minecraft. These identifiers are assigned once and never reassigned, even when Mojang changes the obfuscated name of an element in a new Minecraft version. The intermediary project is maintained at [github.com/FabricMC/intermediary](https://github.com/FabricMC/intermediary).
+
+## Why intermediary is needed
+
+Mojang ships Minecraft with obfuscated bytecode. The obfuscated names change with every release — a class named `abt` in one version might be named `acf` in the next. Without a stable intermediate layer, every Yarn mapping would break on every update.
+
+Intermediary solves this by mapping official obfuscated names to version-independent numeric names. When a new Minecraft version ships, the FabricMC team runs a matching algorithm to carry forward existing intermediary identifiers and only assigns new ones to genuinely new elements. Yarn then only needs to map intermediary names to human-readable named names — it never interacts with official obfuscated names directly.
+
+## The three-namespace chain
+
+Yarn's mapping pipeline uses three distinct namespaces:
+
+```text
+official (Mojang obfuscated)  →  intermediary (stable numeric)  →  named (Yarn human-readable)
+         abt                           class_1234                      AbstractBlock
+         a()V                         method_5678()V                   tick()V
+         b                            field_9012                       powered
+```
+
+| Namespace | Who defines it | Stability | Example |
+|---|---|---|---|
+| `official` | Mojang | Changes every release | `abt`, `a()V` |
+| `intermediary` | FabricMC | Stable across versions | `class_1234`, `method_5678` |
+| `named` | Yarn contributors | Stable once merged | `AbstractBlock`, `tick` |
+
+Yarn only provides the `intermediary → named` half of this chain. The `official → intermediary` half comes from the intermediary project. Both halves are merged together to produce the final Tiny v2 artifacts that Fabric Loom consumes.
+
+## Intermediary mappings in Yarn's build
+
+### Downloading the intermediary file
+
+The `downloadIntermediary` Gradle task fetches the intermediary mappings for the current Minecraft version:
+
+```text URL pattern
+https://github.com/FabricMC/intermediary/raw/master/mappings/<minecraft-version>.tiny
+```
+
+The file is a Tiny v1 file with two namespaces: `official` and `intermediary`. It is cached locally at `build/temp/yarn/minecraft/<version>-intermediary.tiny`.
+
+```groovy build.gradle
+tasks.register('downloadIntermediary', DownloadTask) {
+    group = buildMappingGroup
+    url = "https://github.com/FabricMC/intermediary/raw/master/mappings/${minecraft_version}.tiny"
+    output = new File(cacheFilesMinecraft, "${minecraft_version}-intermediary.tiny")
+}
+```
+
+### Remapping the Minecraft jar
+
+The `mapIntermediaryJar` task applies the downloaded intermediary mappings to the merged Minecraft jar using `tiny-remapper`. This produces an intermediary-named jar that Enigma can open.
+
+```groovy build.gradle
+tasks.register('mapIntermediaryJar', MapJarTask) {
+    dependsOn downloadIntermediary, mergeMinecraftJars
+    output = layout.buildDirectory.file("${minecraft_version}-intermediary.jar")
+    input  = mergeMinecraftJars.output
+    mappings = downloadIntermediary.output
+    from = 'official'
+    to   = 'intermediary'
+}
+```
+
+A separate `mapServerIntermediaryJar` task does the same for the bundled server jar only, which is what the `yarnCommon` Enigma task uses.
+
+### Merging into the final output
+
+After Yarn mappings are compiled, the `mergeTiny` task combines the `official → intermediary` data with the `intermediary → named` data into a single Tiny v1 file. A Tiny v2 merged file is also produced by the `mergeV2` task. These merged files are what Loom downloads when a mod declares a Yarn dependency.
+
+```text Tiny v2 namespaces in the final artifact
+namespaces: official  intermediary  named
+```
+
+<Tip>
+  The unmerged Yarn artifact (`-v2.jar`) contains only `intermediary → named`. Loom uses the merged artifact (`-mergedv2.jar`) so it can remap in both directions.
+</Tip>
+
+## tiny-remapper
+
+All jar remapping in Yarn's build uses `tiny-remapper`, a high-performance bytecode remapping library maintained by FabricMC. The version is pinned in `gradle.properties`:
+
+```properties gradle.properties
+tiny_remapper_version=0.12.0
+```
+
+`tiny-remapper` reads Tiny mapping files and rewrites class, method, and field references throughout the bytecode of a jar. Both `mapIntermediaryJar` and `mapNamedJar` delegate to it via Filament's `MapJarTask`.
+
+## How Fabric Loom uses intermediary at runtime
+
+Mods are compiled against Yarn's named namespace. At launch, Fabric Loader must translate those names back to Mojang's obfuscated names so the JVM can resolve them. Loom automates this through the same intermediary layer:
+
+<Steps>
+  <Step title="Compile against named">
+    You write mod code against Yarn names (`AbstractBlock`, `tick`, etc.). Loom provides a named-mapped Minecraft jar as a compile-time dependency.
+  </Step>
+  <Step title="Remap to intermediary at build time">
+    When you build your mod, Loom remaps the compiled bytecode from `named` to `intermediary`. The resulting jar references stable `class_XXXX` identifiers that will not break when Minecraft updates.
+  </Step>
+  <Step title="Remap to official at runtime">
+    Fabric Loader downloads the `official → intermediary` mappings at launch and remaps from `intermediary` to `official` on the fly, so the JVM sees the correct obfuscated names.
+  </Step>
+</Steps>
+
+This design means that mod jars distributed on platforms like Modrinth contain intermediary names, not Yarn names. A single mod jar can run on any Minecraft version for which intermediary provides stable identifiers — the runtime remapping step handles the rest.
+
+<Warning>
+  Never hard-code official obfuscated names in a mod. They change every Minecraft release. Always use Yarn names during development and let Loom handle the remapping chain.
+</Warning>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Enigma" icon="pen-to-square" href="/reference/enigma">
+    Learn how Enigma opens the intermediary-mapped jar to let you assign Yarn names.
+  </Card>
+  <Card title="Mapping format" icon="file-code" href="/reference/mapping-format">
+    Reference for the Tiny v2 format that carries all three namespaces in the final artifact.
+  </Card>
+</CardGroup>

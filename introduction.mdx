@@ -1,0 +1,62 @@
+---
+title: "What is Yarn? Open Minecraft name mappings"
+description: "Yarn maps Minecraft's obfuscated class names to human-readable identifiers, giving the Fabric modding community a shared, CC0-licensed vocabulary."
+---
+
+Yarn is a set of open, unencumbered Minecraft name mappings maintained by the FabricMC community. Minecraft's code is shipped fully obfuscated — every class, method, and field has a meaningless name like `class_4970` or `method_1234`. Yarn replaces those names with descriptive identifiers such as `AbstractBlock`, `tick`, and `getWorld`, making Minecraft modding readable and maintainable.
+
+<Note>
+  Yarn is published under the [Creative Commons Zero (CC0) license](https://creativecommons.org/publicdomain/zero/1.0/). You can use, modify, and redistribute Yarn mappings in any project — commercial or open source — without attribution.
+</Note>
+
+## The problem Yarn solves
+
+Mojang ships Minecraft with all symbol names removed. Without mappings, reading or writing Minecraft code means deciphering identifiers like `class_2246`, `method_9992`, and `field_10982` — names that carry no semantic meaning and change with every Minecraft release.
+
+Yarn assigns stable, descriptive names to these symbols and publishes them in a machine-readable format. Tooling such as Fabric Loom uses those mappings to remap your mod's bytecode, so you write code against Yarn's human-readable names at development time while the compiled output matches Mojang's obfuscated names at runtime.
+
+## The three-namespace chain
+
+Yarn uses a three-step mapping chain to connect Mojang's obfuscated names to the human-readable names you use in your code.
+
+| Namespace | Description |
+|---|---|
+| **official** | Mojang's obfuscated names, as shipped in the Minecraft jar. These change every release. |
+| **intermediary** | Stable numeric names (e.g. `class_4970`) that do not change between Minecraft versions. Maintained separately by FabricMC. |
+| **named** | Yarn's human-readable names (e.g. `AbstractBlock`). This is what you see and write in your mod. |
+
+The chain runs **official → intermediary → named**. Intermediary acts as a stable anchor: even when Mojang reshuffles obfuscated names between versions, intermediary names stay constant, so Yarn mappings from one version can be partially reused in the next.
+
+<Info>
+  Intermediary mappings are maintained in a separate repository at [FabricMC/intermediary](https://github.com/FabricMC/intermediary). Yarn builds on top of intermediary — it does not replace it.
+</Info>
+
+## Yarn and the Fabric ecosystem
+
+Yarn is one component of the broader Fabric modding toolchain:
+
+- **Yarn** provides the human-readable name mappings.
+- **Fabric Loader** loads Fabric mods at runtime and handles remapping from named to official names.
+- **Fabric Loom** is the Gradle plugin that wires everything together for mod development — it downloads Yarn, remaps the Minecraft jar, and sets up your IDE.
+- **Fabric API** provides common hooks and utilities that mods use at runtime.
+
+When you create a Fabric mod, Loom configures your project to compile against Yarn's named namespace. At build time, Loom remaps your compiled mod back through intermediary to official names so it works against the unmodified Minecraft jar.
+
+## What Yarn covers
+
+Yarn provides mappings for classes, methods, fields, and method parameters across the entire Minecraft codebase. Coverage is community-driven: contributors open pull requests to name unmapped symbols or improve existing names. The current mappings target Minecraft **1.21.11** and are published to `maven.fabricmc.net` as `net.fabricmc:yarn`.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Fork the repository, open Enigma, and submit your first mapping contribution.
+  </Card>
+  <Card title="Using Yarn in mods" icon="cube" href="/using-yarn-in-mods">
+    Add Yarn as a Gradle dependency in your Fabric mod project via Fabric Loom.
+  </Card>
+  <Card title="Contributing guide" icon="code-pull-request" href="/contributing/overview">
+    Learn the pull request workflow and what reviewers look for in mapping submissions.
+  </Card>
+  <Card title="Naming conventions" icon="book" href="/conventions/general">
+    Read the naming rules every contributor must follow before submitting mappings.
+  </Card>
+</CardGroup>

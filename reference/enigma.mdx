@@ -1,0 +1,134 @@
+---
+title: "Enigma: GUI editor for Yarn's Minecraft mapping files"
+description: "Enigma is the GUI tool FabricMC uses to edit Yarn's mapping files. Run ./gradlew yarn to launch it pre-configured for the Yarn repository."
+---
+
+Enigma is a graphical Java obfuscation mapping editor developed by FabricMC at [github.com/FabricMC/Enigma](https://github.com/FabricMC/Enigma). It lets contributors browse Minecraft's intermediary-mapped class tree, assign human-readable names to classes, methods, fields, and parameters, and save those names back to Yarn's `.mapping` files. The `./gradlew yarn` Gradle task handles all setup automatically: it downloads and remaps the Minecraft jar, then launches Enigma with the correct arguments and plugins.
+
+<Note>
+  Enigma is a desktop GUI application and requires a graphical display to run. It cannot be used on headless servers without a virtual display such as Xvfb.
+</Note>
+
+## Launching Enigma
+
+Yarn provides two Gradle tasks that launch Enigma. Both tasks depend on `mapIntermediaryJar`, which remaps the merged Minecraft jar from official obfuscated names to intermediary names before passing it to Enigma.
+
+<CodeGroup>
+
+```bash Linux / macOS (merged jar)
+./gradlew yarn
+```
+
+```bash Windows (merged jar)
+gradlew yarn
+```
+
+```bash Linux / macOS (server-only jar)
+./gradlew yarnCommon
+```
+
+```bash Windows (server-only jar)
+gradlew yarnCommon
+```
+
+</CodeGroup>
+
+### `yarn` vs `yarnCommon`
+
+| Task | Input jar | When to use |
+|---|---|---|
+| `yarn` | Merged client+server jar | General-purpose mapping — covers the full Minecraft codebase |
+| `yarnCommon` | Server-only (common) jar | Focused mapping work on server-side or common classes only |
+
+Both tasks open the same `mappings/` directory, so changes made through either task affect the same source files.
+
+## What the task does
+
+<Steps>
+  <Step title="Download intermediary mappings">
+    The `downloadIntermediary` task fetches the current version's `.tiny` file from `https://github.com/FabricMC/intermediary/raw/master/mappings/<version>.tiny` and caches it locally.
+  </Step>
+  <Step title="Remap the Minecraft jar to intermediary">
+    The `mapIntermediaryJar` task applies the intermediary mappings to the merged Minecraft jar using `tiny-remapper`, producing an intermediary-named jar. `yarnCommon` uses `mapServerIntermediaryJar` instead, which remaps only the bundled server jar.
+  </Step>
+  <Step title="Launch Enigma">
+    The `EnigmaTask` launches Enigma's Swing GUI (`cuchaz.enigma.gui.Main`) with the intermediary jar, the `mappings/` directory, the `enigma_profile.json` configuration file, Minecraft's library jars, and system properties pointing at the unpick definitions and annotations file.
+  </Step>
+</Steps>
+
+## Enigma launch arguments
+
+The `EnigmaTask` passes the following arguments to the Enigma process:
+
+```text
+-jar       <path/to/minecraft-intermediary.jar>
+-mappings  <path/to/mappings/>
+-profile   enigma_profile.json
+-library   <path/to/each/dependency.jar>   (repeated for every library)
+```
+
+Two Java system properties are also set:
+
+| Property | Value |
+|---|---|
+| `unpick.directory` | Path to the `unpick-definitions/` directory |
+| `annotations.file` | Path to `annotations.json` |
+
+## JVM memory
+
+Enigma is launched with `-Xmx2048m`, giving it a 2 GB heap. This is sufficient for most Minecraft versions; if you encounter `OutOfMemoryError` while working with large classes you can increase this value by editing the `EnigmaTask` constructor in `build.gradle`.
+
+```groovy build.gradle (EnigmaTask excerpt)
+EnigmaTask() {
+    // ...
+    jvmArgs "-Xmx2048m"
+}
+```
+
+## Enigma versions
+
+Yarn's `gradle.properties` pins the following Enigma artifacts:
+
+```properties gradle.properties
+enigma_version=4.0.2
+```
+
+Both `enigma-swing` (the GUI) and `enigma-cli` (the command-line interface used by the build) are resolved from this single version property.
+
+## enigma_profile.json
+
+Yarn ships an `enigma_profile.json` at the repository root that Enigma reads on startup:
+
+```json enigma_profile.json
+{
+  "disabled_plugins": [
+    "cuchaz.enigma.analysis.BuiltinNameProposalPlugin"
+  ]
+}
+```
+
+Enigma's `BuiltinNameProposalPlugin` is disabled because Yarn uses its own name-proposer based on [Filament](https://github.com/FabricMC/filament). The Filament-based proposer automatically suggests names for enum constants and certain constant fields by analysing bytecode patterns. Using Enigma's built-in proposer alongside Filament would produce conflicting suggestions, so the built-in one is turned off.
+
+<Tip>
+  If you add a new Enigma plugin to the Yarn classpath, you can enable or disable it in `enigma_profile.json` without modifying `build.gradle`.
+</Tip>
+
+## Filament name-guesser plugin
+
+The `yarn` Gradle task adds the Filament jar to the Enigma classpath, which registers the Filament name proposer automatically. This plugin:
+
+- Automatically suggests names for **enum values** based on their string constants or ordinal position.
+- Proposes names for **some constant fields** derived from field descriptors and usage patterns.
+
+These suggestions appear in Enigma's UI and can be accepted or overridden by the contributor. Suggested names are never saved to the mappings directory without an explicit confirmation.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Intermediary" icon="link" href="/reference/intermediary">
+    Learn how intermediary provides the stable numeric names that Enigma works against.
+  </Card>
+  <Card title="Gradle tasks" icon="wrench" href="/reference/gradle-tasks">
+    Full reference for all Yarn Gradle tasks, including build and artifact tasks.
+  </Card>
+</CardGroup>

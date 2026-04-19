@@ -1,0 +1,137 @@
+---
+title: 'Submit your Yarn mapping changes via a pull request'
+description: 'Format, validate, and submit your Yarn mapping changes as a GitHub pull request, and understand what reviewers and CI checks look for.'
+---
+
+Once you have added or edited mappings in Enigma, the next step is to format your changes, verify they are correct, and open a pull request against the right branch. Reviewers look at naming quality, Javadoc accuracy, and CI results before merging.
+
+<Warning>
+  Never copy names — or use them as inspiration — from MCP, Mojang's obfuscation maps, or Spigot mappings. Doing so violates Yarn's CC0 license and will result in your pull request being closed immediately. All names must be independently derived.
+</Warning>
+
+## Submitting a pull request
+
+<Steps>
+  <Step title="Save your changes in Enigma">
+    After editing mappings in Enigma, save with **File → Save** or `Ctrl+S`. Enigma writes one `.mapping` file per class into the `mappings/` directory. Verify the files you expect are modified before continuing.
+  </Step>
+
+  <Step title="Format the mapping files">
+    Run `formatMappings` to normalize whitespace, ordering, and line endings across all mapping files. This keeps diffs clean and avoids noise in review.
+
+    <CodeGroup>
+
+    ```bash Linux / macOS
+    ./gradlew formatMappings
+    ```
+
+    ```bash Windows
+    gradlew formatMappings
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Validate your mappings locally">
+    Run `checkMappings` to catch structural problems, or run the full `build` task to also generate the mapping artifacts and run Javadoc linting. Fix any errors before committing.
+
+    <CodeGroup>
+
+    ```bash Linux / macOS
+    # Quick validation only
+    ./gradlew checkMappings
+
+    # Full build with Javadoc and artifact generation
+    ./gradlew build
+    ```
+
+    ```bash Windows
+    gradlew checkMappings
+
+    gradlew build
+    ```
+
+    </CodeGroup>
+
+    <Note>
+      The `build` task runs `checkMappings`, `javadocLint`, and produces the mapping jars. Running it locally catches the same issues that CI will flag, saving review round-trips.
+    </Note>
+  </Step>
+
+  <Step title="Commit your changes">
+    Stage the modified mapping files and commit. Use a concise commit message that names the class or feature you mapped.
+
+    ```bash
+    git add mappings/
+    git commit -m "Map ChestBlockEntity and its fields"
+    ```
+
+    If you also modified `src/packageDocs/` for package-level Javadoc, include that directory too:
+
+    ```bash
+    git add mappings/ src/packageDocs/
+    git commit -m "Map net.minecraft.block.entity package"
+    ```
+  </Step>
+
+  <Step title="Push to your fork">
+    Push your branch to your fork on GitHub.
+
+    ```bash
+    git push
+    ```
+
+    If this is your first push on a new local branch, set the upstream tracking reference:
+
+    ```bash
+    git push -u origin HEAD
+    ```
+  </Step>
+
+  <Step title="Open a pull request on GitHub">
+    Go to your fork on GitHub. GitHub will show a banner prompting you to open a pull request. Click **Compare & pull request**.
+
+    Make sure the **base branch** is set to the Minecraft version you worked on (e.g., `1.21.11`), not `main`. The branch name in the Yarn repository always matches the Minecraft version it targets.
+
+    Write a short description of what you mapped and why you chose those names. If a name was non-obvious, explain your reasoning — this helps reviewers and makes future renames easier to evaluate.
+
+    <Tip>
+      If you are unsure about a name before opening a pull request, open a draft PR or ask in the FabricMC community spaces. It is much easier to discuss naming while the PR is open than to revert after a merge.
+    </Tip>
+  </Step>
+</Steps>
+
+## What reviewers check
+
+Reviewers evaluate pull requests against three criteria:
+
+- **Naming conventions** — names must follow the casing rules (`UpperCamelCase` for classes, `lowerCamelCase` for methods and fields, `UPPER_SNAKE_CASE` for static final fields), use American English, avoid unnecessary abbreviations, and be consistent with existing Yarn names. See the [naming conventions](/conventions/general) for the full reference.
+- **Javadoc quality** — Javadocs must be complete sentences ending with a period, use `{@link}` for cross-references, avoid game-content capitalization, and pass `javadocLint` without errors.
+- **No restricted names** — reviewers verify that names are not derived from MCP, Mojang maps, or Spigot. If a name matches a restricted source, the PR will be closed regardless of how appropriate the name seems.
+
+## CI checks
+
+Every pull request runs four automated checks. All must pass before a PR can be merged.
+
+| Check | What it does |
+|---|---|
+| `build` | Compiles the mapping artifacts and runs `checkMappings` and `checkMergedMappings` |
+| `javadocJar` | Generates the Javadoc site and reports HTML/syntax/reference errors via `javadocLint` |
+| `checkMappings` | Validates that every mapped class, method, and field follows structural rules |
+| `mapNamedJar` | Produces a deobfuscated Minecraft jar using the new mappings, confirming the full pipeline works |
+
+You can inspect CI output by clicking the check icon next to your commit on GitHub and opening the **Run ./gradlew build javadocJar checkMappings mapNamedJar --stacktrace** section. Javadoc errors appear under the `Task :javadoc` heading.
+
+To reproduce CI results locally before pushing, run:
+
+<CodeGroup>
+
+```bash Linux / macOS
+./gradlew build javadocJar checkMappings mapNamedJar
+```
+
+```bash Windows
+gradlew build javadocJar checkMappings mapNamedJar
+```
+
+</CodeGroup>

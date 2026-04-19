@@ -1,0 +1,91 @@
+{
+  "projectType": "data-platform",
+  "projectName": "Yarn",
+  "projectDescription": "Open Minecraft name mappings under Creative Commons Zero, providing human-readable names for Minecraft's obfuscated classes, methods, and fields for mod development.",
+  "theme": "almond",
+  "primaryColor": "#6c6353",
+  "lightColor": "#363224",
+  "darkColor": "#cabca2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "using-yarn-in-mods"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/overview",
+              "contributing/setup",
+              "contributing/submitting-mappings"
+            ]
+          },
+          {
+            "group": "Naming Conventions",
+            "pages": [
+              "conventions/general",
+              "conventions/javadoc",
+              "conventions/special-cases"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Gradle Tasks",
+            "pages": [
+              "reference/gradle-tasks",
+              "reference/build-artifacts"
+            ]
+          },
+          {
+            "group": "Mapping Format",
+            "pages": [
+              "reference/mapping-format",
+              "reference/unpick-definitions",
+              "reference/annotations"
+            ]
+          },
+          {
+            "group": "Tooling",
+            "pages": [
+              "reference/enigma",
+              "reference/intermediary"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "6500+ human-readable name mappings for Minecraft classes, methods, and fields",
+    "Creative Commons Zero license — free for all use without restrictions",
+    "Enigma GUI integration for easy visual mapping editing",
+    "Unpick definitions for expanding obfuscated integer constants into named enums",
+    "Javadoc generation for fully documented deobfuscated Minecraft API",
+    "Tiny v2 mapping format support with intermediary and named namespaces",
+    "Gradle build system with tasks for building, validating, and publishing mappings",
+    "Automated checks to ensure mapping quality and consistency"
+  ],
+  "publicApiSurface": [
+    "yarn Gradle task — launch Enigma editor with current mappings",
+    "yarnCommon Gradle task — launch Enigma showing only common (shared client/server) classes",
+    "build Gradle task — produce tiny mapping archive and javadoc jar",
+    "mapNamedJar Gradle task — generate deobfuscated Minecraft jar with yarn names",
+    "decompileCFR / decompileVineflower Gradle tasks — decompile mapped source code",
+    "formatMappings Gradle task — normalize and sort mapping files",
+    "checkMappings Gradle task — validate mapping correctness",
+    "net.fabricmc:yarn Maven artifact — published to maven.fabricmc.net",
+    "mappings/mappings.tiny — Tiny v1 merged mapping file inside published jar",
+    "unpick-definitions/*.unpick — constant unpick definition files"
+  ]
+}

@@ -1,0 +1,209 @@
+---
+title: "Yarn build artifacts, classifiers, and Maven publishing"
+description: "Overview of every jar artifact produced by the Yarn build, their contents, Maven coordinates, and how to add them as a dependency in Fabric Loom."
+---
+
+Running `./gradlew build` produces several jar artifacts in `build/libs/`, each serving a different consumer. All artifacts are published to `https://maven.fabricmc.net` under the `net.fabricmc:yarn` Maven coordinate. This page describes what each artifact contains and when to use it.
+
+## Version format
+
+Yarn versions follow the pattern `<minecraft_version>+build.<build_number>`, for example `1.21.11+build.1`. In local development the build number is `local`, giving a version such as `1.21.11+build.local`.
+
+Every artifact's JAR manifest includes a `Minecraft-Version-Id` attribute set to the bare Minecraft version string (for example `1.21.11`). Tools like Fabric Loom read this attribute to verify that the mappings match the Minecraft version being used.
+
+<Note>
+  The build number is set by the `BUILD_NUMBER` environment variable in CI. Locally it always resolves to `local`.
+</Note>
+
+## Artifacts
+
+<CardGroup cols={2}>
+  <Card title="yarn-&lt;version&gt;.jar" icon="file-zipper">
+    Tiny v1 merged mappings. The primary artifact consumed by older tooling.
+  </Card>
+  <Card title="yarn-&lt;version&gt;-v2.jar" icon="map">
+    Tiny v2 unmerged mappings. The artifact used by Fabric Loom for mod development.
+  </Card>
+  <Card title="yarn-&lt;version&gt;-mergedv2.jar" icon="code-merge">
+    Tiny v2 mappings merged with intermediary. Useful for tools that need a single complete namespace chain.
+  </Card>
+  <Card title="yarn-&lt;version&gt;-tiny.jar" icon="file-archive">
+    GZip-compressed Tiny v1 mapping file. A lightweight alternative to the full jar.
+  </Card>
+  <Card title="yarn-&lt;version&gt;-extras.jar" icon="box-archive">
+    Unpick definitions and annotation metadata. Used by advanced tooling for constant inlining.
+  </Card>
+  <Card title="yarn-&lt;version&gt;-javadoc.jar" icon="book">
+    Complete Javadoc for the deobfuscated Minecraft API.
+  </Card>
+</CardGroup>
+
+### `yarn-<version>.jar` — Tiny v1 merged
+
+**Gradle task:** `tinyJar` | **Maven classifier:** _(none)_
+
+Contains a single file, `mappings/mappings.tiny`, with a Tiny v1 mapping between the `official`, `intermediary`, and `named` namespaces. The `official` and `intermediary` columns are always fully populated; `named` contains yarn names where they exist and falls back to intermediary names for unmapped entries.
+
+```
+mappings/
+└── mappings.tiny   ← Tiny v1, three-way: official ↔ intermediary ↔ named
+```
+
+**MANIFEST.MF:**
+```
+Minecraft-Version-Id: 1.21.11
+```
+
+### `yarn-<version>-v2.jar` — Tiny v2 unmerged
+
+**Gradle task:** `v2UnmergedYarnJar` | **Maven classifier:** `v2`
+
+The primary artifact for Fabric Loom. Contains Tiny v2 mappings in the `intermediary → named` direction (unmerged with official obfuscated names), plus extras for unpick and annotation support.
+
+```
+mappings/
+└── mappings.tiny       ← Tiny v2, intermediary → named
+extras/
+├── definitions.unpick  ← Unpick constant definitions (intermediary namespace)
+├── unpick.json         ← Unpick metadata (version, fabric-loader version)
+└── annotations.json    ← Mapping annotations (remapped to intermediary)
+```
+
+<Tip>
+  This is the artifact you should use for mod development with Fabric Loom. Loom resolves yarn mappings by the `v2` classifier by default.
+</Tip>
+
+### `yarn-<version>-mergedv2.jar` — Tiny v2 merged
+
+**Gradle task:** `v2MergedYarnJar` | **Maven classifier:** `mergedv2`
+
+Contains a Tiny v2 mapping that merges the intermediary mappings with yarn names, producing a full `official → intermediary → named` chain. Includes the same unpick and annotation extras as the `v2` artifact.
+
+```
+mappings/
+└── mappings.tiny       ← Tiny v2, official → intermediary → named
+extras/
+├── definitions.unpick
+├── unpick.json
+└── annotations.json
+```
+
+Use this artifact when you need to resolve names from obfuscated class names directly, without a separate intermediary step.
+
+### `yarn-<version>-tiny.jar` — GZip compressed Tiny v1
+
+**Gradle task:** `compressTiny` | **Maven classifier:** `tiny`
+
+A GZip-compressed version of the Tiny v1 mapping file. Smaller than the standard jar artifact, intended for bandwidth-sensitive distribution scenarios.
+
+### `yarn-<version>-extras.jar` — unpick and annotation data
+
+**Gradle task:** `extrasJar` | **Maven classifier:** `extras`
+
+A standalone jar containing only the `extras/` directory from the `v2` artifact. Use this if you need the unpick definitions or annotation metadata without the full mapping file.
+
+```
+extras/
+├── definitions.unpick  ← Combined unpick constant definitions
+├── unpick.json         ← Unpick metadata with version information
+└── annotations.json    ← Annotation data remapped to intermediary
+```
+
+### `yarn-<version>-javadoc.jar` — Javadoc
+
+**Gradle task:** `javadocJar` | **Maven classifier:** `javadoc`
+
+Contains the full Javadoc for deobfuscated Minecraft, generated from fake source synthesised by [MappingPoet](https://github.com/FabricMC/mapping-poet). IDEs and documentation browsers can attach this jar to the mapped Minecraft dependency to display inline documentation.
+
+## Maven coordinates
+
+All artifacts share the same Maven group and artifact ID. Classifiers distinguish the individual jars.
+
+```
+Group:    net.fabricmc
+Artifact: yarn
+Version:  <minecraft_version>+build.<build_number>
+```
+
+| Classifier | Artifact |
+|-----------|----------|
+| _(none)_ | `yarn-<version>.jar` — Tiny v1 merged |
+| `v2` | `yarn-<version>-v2.jar` — Tiny v2 unmerged |
+| `mergedv2` | `yarn-<version>-mergedv2.jar` — Tiny v2 merged |
+| `tiny` | `yarn-<version>-tiny.jar` — GZip Tiny v1 |
+| `extras` | `yarn-<version>-extras.jar` — Unpick and annotations |
+| `javadoc` | `yarn-<version>-javadoc.jar` — Javadoc |
+
+## Maven repository
+
+```
+https://maven.fabricmc.net
+```
+
+## Using yarn in a mod project
+
+Fabric Loom resolves Yarn automatically when you declare the mappings dependency in your build script. Loom uses the **`v2` (Tiny v2 unmerged)** artifact internally; you do not need to specify the classifier yourself.
+
+<CodeGroup>
+
+```groovy build.gradle (Groovy DSL)
+repositories {
+    maven {
+        name = "Fabric"
+        url = "https://maven.fabricmc.net"
+    }
+}
+
+dependencies {
+    // Minecraft dependency (managed by Loom)
+    minecraft "com.mojang:minecraft:1.21.11"
+
+    // Yarn mappings — Loom fetches the v2 classifier automatically
+    mappings "net.fabricmc:yarn:1.21.11+build.1:v2"
+
+    // Fabric Loader
+    modImplementation "net.fabricmc:fabric-loader:0.16.10"
+}
+```
+
+```kotlin build.gradle.kts (Kotlin DSL)
+repositories {
+    maven {
+        name = "Fabric"
+        url = uri("https://maven.fabricmc.net")
+    }
+}
+
+dependencies {
+    // Minecraft dependency (managed by Loom)
+    minecraft("com.mojang:minecraft:1.21.11")
+
+    // Yarn mappings — Loom fetches the v2 classifier automatically
+    mappings("net.fabricmc:yarn:1.21.11+build.1:v2")
+
+    // Fabric Loader
+    modImplementation("net.fabricmc:fabric-loader:0.16.10")
+}
+```
+
+</CodeGroup>
+
+<Note>
+  Replace `1.21.11+build.1` with the latest published build number. You can find the full list of published versions in the [Fabric Maven metadata](https://maven.fabricmc.net/net/fabricmc/yarn/maven-metadata.xml).
+</Note>
+
+## The Javadoc jar
+
+The `-javadoc.jar` artifact contains full HTML Javadoc generated by [MappingPoet](https://github.com/FabricMC/mapping-poet) from the Yarn mappings. It is published alongside every Yarn build and can be attached to the mapped Minecraft dependency in your IDE.
+
+Fabric Loom handles Javadoc integration automatically when you declare the `v2` mappings dependency — no extra dependency declarations are needed in your `build.gradle`. If your IDE is not showing Javadoc, verify that Loom is resolving the Yarn artifact correctly and that you have indexed the project sources.
+
+The `-javadoc.jar` can also be downloaded directly from Maven for use with external tooling:
+
+```
+https://maven.fabricmc.net/net/fabricmc/yarn/1.21.11+build.1/yarn-1.21.11+build.1-javadoc.jar
+```
+
+<Note>
+  Replace `1.21.11+build.1` with the latest build number. See the [Fabric Maven metadata](https://maven.fabricmc.net/net/fabricmc/yarn/maven-metadata.xml) for the full list of available versions.
+</Note>

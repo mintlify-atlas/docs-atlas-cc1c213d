@@ -1,0 +1,186 @@
+---
+title: "Special naming cases and Mojang name rules"
+description: "Covers Mojang name usage and its three exceptions, boolean naming, method vs. class phrases, builder methods, maps, collections, coordinates, and package docs."
+---
+
+Some naming decisions in Yarn require more judgement than a simple rule can capture. This page covers the nuanced cases: when to follow Mojang's names, how to handle specific language patterns, and what patterns to apply to booleans, builders, maps, and coordinates.
+
+## Mojang names
+
+<Warning>
+**Do not use names from Mojang's obfuscation maps.** The ProGuard mappings that ship with Minecraft releases are not a permitted source for Yarn names.
+</Warning>
+
+Yarn names should match names that appear in **strings** in the vanilla Minecraft code — exception messages, translation keys, registry names, and so on. This prevents confusion for modders who read crash reports or vanilla source and encounter unfamiliar names.
+
+Even when a Mojang name does not appear in any string, it is still worth using it if it accurately reflects the class's purpose. Using an accurate official name reduces the chance of a rename being needed in the future. For example:
+
+```java
+// Correct — matches Mojang's name, describes the class accurately
+class BedrockBlock { }
+
+// Incorrect — describes only one current behaviour, may break if Mojang adds more
+class NoSpawningBlock { }
+```
+
+Mojang may add behaviour to a class at any time. A name based on current implementation details will mislead modders who encounter the class in a future version where it does more than the name implies.
+
+### The three exceptions
+
+There are three cases where Yarn deliberately diverges from Mojang's names:
+
+| Mojang name | Yarn name | Reference |
+|---|---|---|
+| `level` | `world` | [yarn#89](https://github.com/FabricMC/yarn/issues/89) |
+| `menu` | `screenHandler` or `handler` | [yarn#1106](https://github.com/FabricMC/yarn/pull/1106) |
+| `container` | `inventory` | — |
+
+Use `world` everywhere Mojang uses `level`. Use `screenHandler` when the screen context is not obvious from the surrounding code, or simply `handler` when it is. Use `inventory` everywhere Mojang uses `container`.
+
+## Boolean naming
+
+Boolean fields, parameters, and variables must always use **adjective phrases** or **present-tense verb phrases**. Avoid the `is` and `has` prefixes whenever the name reads clearly without them.
+
+```java
+// Correct — adjective phrase, no unnecessary prefix
+boolean colored;
+boolean powered;
+boolean canOpen;
+
+// Incorrect — redundant prefix
+boolean isColored;
+boolean hasColor;
+```
+
+The `is` prefix is appropriate when the name would be ambiguous without it (e.g., `isClient` vs. `client`, where `client` could be a noun). Otherwise, drop it.
+
+## Method vs. class and field phrases
+
+| Member kind | Required phrase kind | Examples |
+|---|---|---|
+| Methods | Verb phrase | `tick`, `getCarversForStep`, `onBlockAdded` |
+| Classes | Noun phrase | `ChunkRegion`, `BlockState` |
+| Non-boolean fields and variables | Noun phrase | `color`, `soundGroup` |
+| Boolean fields and variables | Adjective or present-tense verb phrase | `powered`, `canOpen` |
+
+The exceptions to the verb-phrase rule for methods are `with…`, `to…`, `from…`, `of`, and builder methods — these use noun or preposition phrases that reflect their return type or source.
+
+## Builder methods
+
+Builder setter methods must be named the same as the field they set, with **no prefix**. Do not use `set`, `with`, or any other prefix on builder methods.
+
+```java
+// Correct — builder method named after the field
+AbstractBlock.Settings.create()
+    .hardness(2.0f)
+    .resistance(3.0f)
+    .sounds(BlockSoundGroup.STONE)
+
+// Incorrect — set prefix is not used on builder methods
+AbstractBlock.Settings.create()
+    .setHardness(2.0f)
+    .setResistance(3.0f)
+```
+
+## Map naming
+
+Name maps by their **value type** when that is enough information:
+
+```java
+Map<Identifier, Block> blocks;
+```
+
+When the key type also needs to be communicated, use the **`valuesByKeys`** format:
+
+```java
+Map<Block, String> translationsByBlock;
+Map<Identifier, List<Recipe>> recipesByType;
+```
+
+## Collection naming
+
+Use a **plural noun** for all collections. Do not append "List", "Set", or "Array" to the name unless you need to distinguish between multiple collections of different types that hold the same kind of object.
+
+```java
+// Correct — plural noun
+List<Entity> entities;
+Set<BlockPos> positions;
+
+// Acceptable — distinguishes from a different collection of the same content type
+List<Entity> entityList;
+Set<Entity> entitySet;
+
+// Incorrect — suffix without need for disambiguation
+List<Entity> entityList;   // when there is no entitySet or entityArray
+```
+
+## Previous-tick values
+
+Use the prefix **"last"** for fields that store what a value was during the previous tick. This is a consistent pattern across the Minecraft codebase:
+
+```java
+double lastX;
+double lastY;
+double lastZ;
+double lastWidth;
+double lastHealth;
+```
+
+## Coordinates
+
+Named coordinates follow a **word-before-coordinate** order when the axis letter alone is not enough:
+
+```java
+// Correct — descriptive word precedes the axis letter
+double velocityX;
+double velocityY;
+float pivotZ;
+
+// Incorrect — axis letter comes first
+double xVelocity;
+float zPivot;
+```
+
+Use bare `x`, `y`, and `z` when the context makes their meaning unambiguous. For screen coordinates, always use `x` and `y` — not `left` and `top`.
+
+## Package documentation
+
+Enigma's mapping format does not support creating `package-info.java` files, so Yarn keeps package documentation separately in:
+
+```
+src/packageDocs/java/
+```
+
+These files host Javadoc for Yarn packages. They follow the same Javadoc conventions as all other mapping documentation. Below is a real example from the `net.minecraft` root package:
+
+```java
+/**
+ * The base package for all Minecraft classes. All Minecraft classes belong
+ * to this package in their intermediary names.
+ *
+ * <p>Unmapped classes go into this package by default. This package
+ * additionally contains {@link Bootstrap}, {@link SharedConstants}, and
+ * {@link MinecraftVersion} classes.
+ */
+package net.minecraft;
+```
+
+And from `net.minecraft.nbt`:
+
+```java
+/**
+ * The Named Binary Tag (NBT) data format.
+ *
+ * <p>NBT is a simple data structure format used in Minecraft's in-game data
+ * serialization. Data stored on disks, modified by commands, and transported
+ * via packets are usually in this format. In most cases, NBT is not the
+ * runtime form of data; data are instead written to Java class fields using
+ * Java types, and during serialization or modification by commands, the code
+ * will write the fields to NBT data.
+ */
+package net.minecraft.nbt;
+```
+
+<Note>
+Package documentation is currently not exported to mappings. Its only purpose is to appear in the generated Javadoc site.
+</Note>

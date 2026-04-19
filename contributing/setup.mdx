@@ -1,0 +1,104 @@
+---
+title: 'Set up your local Yarn mapping development environment'
+description: 'Fork the Yarn repository, install the required tools, and launch the Enigma mapping editor to start contributing Minecraft name mappings.'
+---
+
+Yarn uses a Gradle-based build system that downloads Minecraft, applies intermediary mappings, and launches [Enigma](https://github.com/FabricMC/Enigma) — the graphical editor you use to add and edit mappings. The setup takes only a few minutes.
+
+## Prerequisites
+
+- **Java 17 or higher** — required to run the Yarn build scripts. Java 21 is recommended.
+- **Git** — for cloning the repository and managing branches.
+- **A GitHub account** — for forking the repository and opening pull requests.
+
+## Setup steps
+
+<Steps>
+  <Step title="Fork the repository on GitHub">
+    Go to [github.com/FabricMC/yarn](https://github.com/FabricMC/yarn) and click **Fork** in the top-right corner. This creates a copy of the repository under your GitHub account where you can push your changes.
+  </Step>
+
+  <Step title="Clone your fork">
+    Clone your fork to your local machine. Replace `YOUR_USERNAME` with your GitHub username.
+
+    <CodeGroup>
+
+    ```bash Linux / macOS
+    git clone https://github.com/YOUR_USERNAME/yarn.git
+    cd yarn
+    ```
+
+    ```bash Windows
+    git clone https://github.com/YOUR_USERNAME/yarn.git
+    cd yarn
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Check which Minecraft version the branch targets">
+    Each Yarn branch maps to a specific Minecraft version. The branch name is always the Minecraft version it targets — for example, `1.21.11` maps Minecraft 1.21.11.
+
+    <Note>
+      When you open a pull request, make sure it targets the branch that matches the Minecraft version you are working on. The build will fail if the branch name does not match the configured Minecraft version in `build.gradle`.
+    </Note>
+
+    To list available branches and switch to the one you want:
+
+    <CodeGroup>
+
+    ```bash Linux / macOS
+    git fetch --all
+    git branch -r
+    git checkout 1.21.11   # replace with the version you want
+    ```
+
+    ```bash Windows
+    git fetch --all
+    git branch -r
+    git checkout 1.21.11
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Open Enigma with the Yarn Gradle task">
+    Run the `yarn` Gradle task. It will download the Minecraft client and server jars, apply intermediary mappings, and launch the Enigma GUI pre-configured with the current mappings and name-proposal plugins.
+
+    <CodeGroup>
+
+    ```bash Linux / macOS
+    ./gradlew yarn
+    ```
+
+    ```bash Windows
+    gradlew yarn
+    ```
+
+    </CodeGroup>
+
+    The first run takes several minutes because it downloads Minecraft and its libraries. Subsequent runs are much faster.
+  </Step>
+
+  <Step title="Navigate the Enigma interface">
+    Once Enigma opens, you will see three main panels:
+
+    - **Left panel** — the class list, showing all classes in the game. Unmapped classes appear with their intermediary name (e.g., `class_1234`). Mapped classes show their Yarn name.
+    - **Center panel** — the mapping editor, where you type names and Javadoc comments for the selected class, method, or field.
+    - **Right panel** — the decompiled source code for the selected class, giving you context to understand what a method or field does before you name it.
+
+    Select an unmapped element in the left panel, review its decompiled code on the right, and enter your name in the center editor. Save frequently with **File → Save** or `Ctrl+S`.
+  </Step>
+</Steps>
+
+## Useful Gradle tasks
+
+| Task | Description |
+|---|---|
+| `./gradlew yarn` | Download Minecraft and open the Enigma GUI |
+| `./gradlew yarnCommon` | Open Enigma showing only server-side (common) classes |
+| `./gradlew formatMappings` | Normalize and sort the mapping files |
+| `./gradlew checkMappings` | Validate mappings without building the full artifact |
+| `./gradlew build` | Run all checks and build the mapping artifacts |
+
+When you are ready to submit your work, see [Submit Yarn mappings via pull request](/contributing/submitting-mappings).

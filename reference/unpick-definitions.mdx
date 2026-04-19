@@ -1,0 +1,203 @@
+---
+title: 'Unpick definitions: constant name restoration'
+description: 'Reference for the .unpick format used in yarn to replace raw integer literals in decompiled Minecraft code with their named constant or flag references.'
+---
+
+When a Java decompiler processes Minecraft's bytecode it can only see the raw integer values that were passed to a method — not the named constants those integers came from. Unpick is a tool that annotates the decompiled output so that `entity.setFlag(1, true)` becomes `entity.setFlag(Entity.SNEAKING_FLAG_INDEX, true)`. The yarn repository ships a set of `.unpick` definition files in `unpick-definitions/` that describe exactly which parameters and return values should receive this treatment.
+
+## How unpick works
+
+<Steps>
+  <Step title="Define constant groups">
+    Each `.unpick` file declares one or more named groups. A group collects the static fields whose values are the valid integers for a particular use case (e.g. all ARGB color constants, all bee flag bitmasks).
+  </Step>
+  <Step title="Attach groups to methods">
+    `target_method` blocks link a group to a specific parameter index or return value of a method. The decompiler then knows to replace the raw integer with the matching constant reference.
+  </Step>
+  <Step title="Combine and remap">
+    During the build the `combineUnpickDefinitions` task merges all `.unpick` files into a single `definitions.unpick` file. The `remapUnpickDefinitionsIntermediary` task then translates named class and method references to the intermediary namespace so that the definitions survive remapping.
+  </Step>
+  <Step title="Apply to the jar">
+    The `unpickIntermediaryJar` task runs the unpick tool against the intermediary Minecraft jar, producing a version of the jar whose decompilation output uses named constants throughout.
+  </Step>
+</Steps>
+
+## File format
+
+Every `.unpick` file starts with a version header followed by group and target declarations.
+
+### Header
+
+```text
+unpick v4
+```
+
+<Note>
+  The current format version used in the yarn repository is `v4`. Older versions (`v2`) used a different syntax. The `unpick.json` metadata file records which version the published artefacts expect (currently `2` in the metadata JSON).
+</Note>
+
+### Group declarations
+
+A group names a collection of static fields that are semantically related. All fields in a group share the same integer meaning for the annotated parameter.
+
+```text
+group <java_type> <group_name>
+    [<modifier>]
+    <owner_class>.<field_name>
+    ...
+```
+
+| Part | Description |
+|------|-------------|
+| `<java_type>` | The Java primitive type of the constants (`int`, `byte`, etc.) |
+| `<group_name>` | An identifier used to reference the group in `target_method` blocks |
+| `@flags` | Optional modifier: the integer is a bitmask and constants are individual bit positions |
+| `@format hex` | Optional modifier: display the integer in hexadecimal notation |
+| `<owner_class>.<field_name>` | A fully-qualified static field reference; wildcards (`*`) are supported |
+
+### Target method declarations
+
+A `target_method` block tells unpick which parameters or return values of a method should be replaced using a particular group.
+
+```text
+target_method <owner_class> <method_name> <descriptor>
+    param <index> <group_name>
+    return <group_name>
+```
+
+| Part | Description |
+|------|-------------|
+| `param <index>` | Zero-based parameter index to annotate (matches the JVM parameter list, excluding `this`) |
+| `return` | Annotates the return value rather than a parameter |
+
+## Real examples
+
+<AccordionGroup>
+  <Accordion title="colors.unpick — ARGB color constants">
+    The `colors.unpick` file defines a group for ARGB-formatted integer colors and attaches it to every method in `ColorHelper` and `DrawContext` that accepts or returns an ARGB integer.
+
+    ```text
+    unpick v4
+
+    #: Integers in ARGB color format.
+    group int argb_color
+        @format hex
+        net.minecraft.util.Colors.*
+        net.minecraft.client.realms.gui.screen.RealmsScreen.DARK_GRAY
+        net.minecraft.client.realms.gui.screen.RealmsScreen.GRAY
+
+    target_method net.minecraft.util.math.ColorHelper getAlpha (I)I
+        param 0 argb_color
+    target_method net.minecraft.util.math.ColorHelper getRed (I)I
+        param 0 argb_color
+    target_method net.minecraft.util.math.ColorHelper getArgb (IIII)I
+        return argb_color
+    target_method net.minecraft.util.math.ColorHelper mix (II)I
+        param 0 argb_color
+        param 1 argb_color
+        return argb_color
+    target_method net.minecraft.client.gui.DrawContext fill (IIIII)V
+        param 4 argb_color
+    ```
+
+    The `@format hex` modifier means the constant value will be rendered as a hexadecimal literal (e.g. `0xFF0000FF`) rather than a decimal integer in the decompiler output.
+  </Accordion>
+
+  <Accordion title="entity_flags.unpick — bitmask entity flags">
+    The `entity_flags.unpick` file uses `@flags` groups for bitmask-based state tracking on entities. Each constant in the group is a bit position, and the decompiler can render the combined value as a bitwise OR expression.
+
+    ```text
+    unpick v4
+
+    #: Flags used in BeeEntity#BEE_FLAGS.
+    group int bee_flags
+        @flags
+        net.minecraft.entity.passive.BeeEntity.NEAR_TARGET_FLAG
+        net.minecraft.entity.passive.BeeEntity.HAS_STUNG_FLAG
+        net.minecraft.entity.passive.BeeEntity.HAS_NECTAR_FLAG
+
+    target_method net.minecraft.entity.passive.BeeEntity getBeeFlag (I)Z
+        param 0 bee_flags
+    target_method net.minecraft.entity.passive.BeeEntity setBeeFlag (IZ)V
+        param 0 bee_flags
+
+    #: Flag indices used in Entity#FLAGS.
+    group int entity_flag_index
+        net.minecraft.entity.Entity.ON_FIRE_FLAG_INDEX
+        net.minecraft.entity.Entity.SNEAKING_FLAG_INDEX
+        net.minecraft.entity.Entity.SPRINTING_FLAG_INDEX
+        net.minecraft.entity.Entity.SWIMMING_FLAG_INDEX
+        net.minecraft.entity.Entity.INVISIBLE_FLAG_INDEX
+        net.minecraft.entity.Entity.GLOWING_FLAG_INDEX
+        net.minecraft.entity.Entity.GLIDING_FLAG_INDEX
+
+    target_method net.minecraft.entity.Entity getFlag (I)Z
+        param 0 entity_flag_index
+    target_method net.minecraft.entity.Entity setFlag (IZ)V
+        param 0 entity_flag_index
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## unpick.json metadata
+
+The `unpick-definitions/unpick.json` file stores metadata about the published unpick definitions. It is embedded inside the `-v2.jar`, `-mergedv2.jar`, and `-extras.jar` artefacts at `extras/unpick.json`.
+
+```json
+{
+  "version": 2,
+  "namespace": "intermediary"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `version` | The unpick metadata format version (currently `2`) |
+| `namespace` | The namespace in which class and method names are expressed in the published `definitions.unpick` file — always `intermediary` after remapping |
+
+<Note>
+  The `version` field in `unpick.json` refers to the **metadata schema version**, not the `.unpick` file format version declared in the `unpick v4` header.
+</Note>
+
+## Existing definition files
+
+The `unpick-definitions/` directory contains the following definition files:
+
+| File | What it annotates |
+|------|-------------------|
+| `chunk_ticket_type_flags.unpick` | `ChunkTicketType` expiration constants |
+| `colors.unpick` | ARGB integer color constants across `ColorHelper`, `DrawContext`, `TextRenderer`, `VertexConsumer` |
+| `entity_flags.unpick` | Bitmask flag fields for entities: `BeeEntity`, `FoxEntity`, `AbstractHorseEntity`, `LivingEntity`, `PandaEntity`, `PersistentProjectileEntity`, `VexEntity`, `ArmorStandEntity`, `DisplayEntity.TextDisplayEntity`, `Entity` |
+| `entity_model_parts.unpick` | Named part indices for entity models |
+| `entity_status.unpick` | Entity status effect identifiers |
+| `gl.unpick` | OpenGL enum constants for GL state calls |
+| `glfw/` | Directory of GLFW constants: keys, mouse buttons, cursor shapes, error codes, input modes, modifiers, monitor events, platform identifiers, and window hints |
+| `jdk.unpick` | JDK constants (e.g. charset names) |
+| `joml.unpick` | JOML math library constants |
+| `lightmap_coordinates.unpick` | Packed lightmap UV integer constants |
+| `nbt_type_ids.unpick` | NBT tag type ID constants |
+| `network.unpick` | Network protocol packet identifiers |
+| `network_packets.unpick` | Additional network packet constants |
+| `pufferfish_states.unpick` | Pufferfish inflation state integers |
+| `screen_handler_slot_ids.unpick` | Slot index constants for screen handlers |
+| `set_block_state_flags.unpick` | Flag bitmask for `World.setBlockState` calls |
+| `trial_spawner_state.unpick` | Trial spawner state integer values |
+| `woodland_mansion.unpick` | Woodland mansion room type constants |
+| `world_events.unpick` | World event integer identifiers |
+
+## Build integration
+
+The following Gradle tasks process the unpick definitions:
+
+| Task | Description |
+|------|-------------|
+| `combineUnpickDefinitions` | Merges all `*.unpick` files in `unpick-definitions/` into `build/temp/yarn/definitions.unpick` |
+| `remapUnpickDefinitionsIntermediary` | Translates class/method names from `named` to `intermediary` namespace |
+| `unpickIntermediaryJar` | Applies the definitions to the intermediary jar to produce a jar suitable for decompilation |
+| `checkUnpickDefinitions` | Validates that every class and method referenced in the definitions exists in the named jar |
+
+<Warning>
+  The `checkUnpickDefinitions` task runs as part of `check` and will fail the build if a definition references a class or method that does not exist. Always run `./gradlew checkUnpickDefinitions` before opening a pull request that modifies `.unpick` files.
+</Warning>
+
+The remapped `definitions.unpick` and `unpick.json` are packaged at `extras/` inside the `-v2.jar`, `-mergedv2.jar`, and `-extras.jar` Maven artefacts, making them available to decompiler tooling via the standard yarn dependency.

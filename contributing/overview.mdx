@@ -1,0 +1,45 @@
+---
+title: 'Contributing to Yarn mappings: how to get involved'
+description: 'Learn how to contribute new mappings, improve existing names, and write Javadoc comments for the Yarn open-source Minecraft mapping project.'
+---
+
+Yarn is a community-driven project that names every class, method, and field in Minecraft's obfuscated code. Every name you contribute makes life easier for the entire modding ecosystem. Whether you are mapping something for the first time or refining a name that has been there for years, your work matters.
+
+## Ways to contribute
+
+There are three main types of contributions you can make to Yarn. Each is valuable, and most pull requests combine more than one.
+
+<CardGroup cols={2}>
+  <Card title="New mappings" icon="tag" href="/contributing/setup">
+    Name a class, method, or field that currently has no human-readable name. Open Enigma with `./gradlew yarn`, find an unmapped element, and give it a clear, descriptive name following the naming conventions.
+  </Card>
+  <Card title="Improved names" icon="pen" href="/contributing/submitting-mappings">
+    Rename an existing mapping that is inaccurate, misleading, or inconsistent with surrounding code. Good names describe what something *does*, not how it is implemented.
+  </Card>
+  <Card title="Javadoc comments" icon="book-open" href="/contributing/submitting-mappings">
+    Write documentation comments for mapped classes, methods, and fields. Javadocs are published and used by thousands of mod developers, so clear, accurate descriptions have a large impact.
+  </Card>
+  <Card title="Naming conventions" icon="list-checks" href="/conventions/general">
+    Before contributing, read the naming conventions to understand the rules for casing, abbreviations, packages, and Javadoc style that keep Yarn consistent across Minecraft versions.
+  </Card>
+</CardGroup>
+
+## License and restrictions
+
+Yarn is published under the [Creative Commons Zero (CC0)](https://creativecommons.org/publicdomain/zero/1.0/) license, which places it in the public domain. To maintain that status, all contributed names must be original.
+
+<Warning>
+  Copying names — or even using them as inspiration — from MCP, Mojang's obfuscation maps, or Spigot mappings is **completely forbidden** without explicit written permission from those projects to relicense under CC0. This rule also applies to discussing naming approaches used in those projects. Violations will result in your pull request being closed.
+</Warning>
+
+You *are* encouraged to consult other community members about naming decisions. Use pull requests or the FabricMC community spaces to ask questions and discuss approaches before you finalize a name.
+
+## Contribution workflow
+
+The full process from setup to merged pull request looks like this:
+
+1. **Set up your environment** — fork the repository, clone it locally, and run `./gradlew yarn` to open Enigma. See [Set up your Yarn development environment](/contributing/setup).
+2. **Make your changes** — use Enigma to add or edit mappings, save your work, and run `./gradlew formatMappings` to normalize the output.
+3. **Validate and submit** — run `./gradlew build` to check your mappings, commit, push, and open a pull request. See [Submit Yarn mappings via pull request](/contributing/submitting-mappings).
+
+Reviewers check that names follow the [naming conventions](/conventions/general), that Javadocs are well-formed, and that no restricted names have been included.
